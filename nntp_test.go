@@ -1,0 +1,378 @@
+package nntp_test
+
+import (
+	"bufio"
+	"bytes"
+	"compress/zlib"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/textproto"
+	"reflect"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/go-test/deep"
+	"github.com/mrincompetent/nntp"
+)
+
+type bufferConnection struct {
+	read  *bytes.Buffer
+	write *bytes.Buffer
+}
+
+func (r *bufferConnection) Read(p []byte) (n int, err error) {
+	return r.read.Read(p)
+}
+
+func (r *bufferConnection) Write(p []byte) (n int, err error) {
+	return r.write.Write(p)
+}
+
+func (r *bufferConnection) Close() error {
+	return nil
+}
+
+func (r *bufferConnection) RecordPrintfLine(t testing.TB, line string, args ...interface{}) {
+	bufWriter := bufio.NewWriter(r.read)
+	defer func() {
+		if err := bufWriter.Flush(); err != nil {
+			t.Fatalf("failed to flush: %v", err)
+		}
+	}()
+
+	if err := textproto.NewWriter(bufWriter).PrintfLine(line, args...); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+}
+
+func (r *bufferConnection) RecordDotMessage(t testing.TB, s string) {
+	bufWriter := bufio.NewWriter(r.read)
+	defer func() {
+		if err := bufWriter.Flush(); err != nil {
+			t.Fatalf("failed to flush: %v", err)
+		}
+	}()
+
+	txtWriter := textproto.NewWriter(bufWriter).DotWriter()
+	defer func() {
+		if err := txtWriter.Close(); err != nil {
+			t.Fatalf("failed to close: %v", err)
+		}
+	}()
+
+	if _, err := txtWriter.Write([]byte(s)); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+}
+
+func (r *bufferConnection) RecordCompressedDotMessage(t testing.TB, s string) {
+	zlibWriter := zlib.NewWriter(r.read)
+	defer func() {
+		if err := zlibWriter.Close(); err != nil {
+			t.Fatalf("failed to flush: %v", err)
+		}
+	}()
+
+	bufWriter := bufio.NewWriter(zlibWriter)
+	defer func() {
+		if err := bufWriter.Flush(); err != nil {
+			t.Fatalf("failed to flush: %v", err)
+		}
+	}()
+
+	txtWriter := textproto.NewWriter(bufWriter).DotWriter()
+	defer func() {
+		if err := txtWriter.Close(); err != nil {
+			t.Fatalf("failed to close: %v", err)
+		}
+	}()
+
+	if _, err := txtWriter.Write([]byte(s)); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+}
+
+func newBufferConnection() *bufferConnection {
+	return &bufferConnection{
+		read:  &bytes.Buffer{},
+		write: &bytes.Buffer{},
+	}
+}
+
+func GetClient(t testing.TB) (*nntp.Client, *bufferConnection) {
+	conn := newBufferConnection()
+	conn.RecordPrintfLine(t, "200 some-newsserver")
+
+	client, err := nntp.NewFromConn(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return client, conn
+}
+
+func GetAuthenticatedClient(t testing.TB) (*nntp.Client, *bufferConnection) {
+	client, conn := GetClient(t)
+	conn.RecordPrintfLine(t, "381 PASS required")
+	conn.RecordPrintfLine(t, "281 Ok")
+
+	if err := client.Authenticate("foo", "bar"); err != nil {
+		t.Errorf("failed to authenticate: %v", err)
+	}
+
+	return client, conn
+}
+
+func TestClient_Authenticate(t *testing.T) {
+	GetAuthenticatedClient(t)
+}
+
+func TestClient_Help(t *testing.T) {
+	const expectedHelp = `article [MessageID|Number]
+body [MessageID|Number]
+date
+head [MessageID|Number]
+help
+ihave
+mode reader|stream
+slave
+quit
+group newsgroup
+last
+next
+list [active|active.times|newsgroups|extensions|distributions|distrib.pats|moderators|overview.fmt|subscriptions]
+listgroup newsgroup
+newgroups yymmdd hhmmss ["GMT"] [<distributions>]
+post
+stat [MessageID|Number]
+xgtitle [group_pattern]
+xhdr header [range|MessageID]
+xzhdr header [range|MessageID]
+hdr header [range|MessageID]
+over [range]
+xover [range]
+xzver [range]
+xpat header range|MessageID pat
+xpath MessageID
+xnumbering rfc3977|rfc977|window
+xfeature compress gzip [terminator]
+authinfo user Name|pass Password
+`
+
+	client, conn := GetAuthenticatedClient(t)
+	conn.RecordPrintfLine(t, "100 Legal commands")
+	conn.RecordDotMessage(t, expectedHelp)
+
+	gotHelp, err := client.Help()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if gotHelp != expectedHelp {
+		t.Logf("Expected help: \n%s", expectedHelp)
+		t.Logf("Got help: \n%s", gotHelp)
+		t.Error("Got help text does not match expected help")
+	}
+}
+
+func TestClient_Newsgroups(t *testing.T) {
+	t.Run("successful", func(t *testing.T) {
+		client, conn := GetAuthenticatedClient(t)
+		conn.RecordPrintfLine(t, "231 list of new newsgroups follows")
+		conn.RecordDotMessage(t, `group1 4 1 y
+group2 89 56 n
+group3 99 80 m
+`)
+		expectedGroups := []nntp.NewsgroupOverview{
+			{
+				Name:   "group1",
+				Low:    1,
+				High:   4,
+				Status: nntp.NewsgroupStatusPostingPermitted,
+			},
+			{
+				Name:   "group2",
+				Low:    56,
+				High:   89,
+				Status: nntp.NewsgroupStatusPostingProhibited,
+			},
+			{
+				Name:   "group3",
+				Low:    80,
+				High:   99,
+				Status: nntp.NewsgroupStatusPostingModerated,
+			},
+		}
+
+		gotGroups, err := client.Newsgroups(time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(gotGroups, expectedGroups) {
+			t.Logf("Expected: %s", toJSON(t, expectedGroups))
+			t.Logf("Got: %s", toJSON(t, gotGroups))
+			t.Fatal("Returned groups do not match expected groups")
+		}
+	})
+
+	t.Run("invalid status", func(t *testing.T) {
+		client, conn := GetAuthenticatedClient(t)
+		conn.RecordPrintfLine(t, "231 list of new newsgroups follows")
+		conn.RecordDotMessage(t, "group3 99 80 zzz")
+
+		_, gotErr := client.Newsgroups(time.Now())
+		expectedErr := fmt.Errorf("invalid newsgroup status '%s'", "zzz")
+		if !errors.Is(gotErr, gotErr) {
+			t.Logf("Expected: %v", expectedErr)
+			t.Logf("Got: %v", gotErr)
+			t.Error("Invalid error returned")
+		}
+	})
+
+	t.Run("invalid high", func(t *testing.T) {
+		client, conn := GetAuthenticatedClient(t)
+		conn.RecordPrintfLine(t, "231 list of new newsgroups follows")
+		conn.RecordDotMessage(t, "group3 a 80 y")
+
+		_, gotErr := client.Newsgroups(time.Now())
+		var expectedErr *strconv.NumError
+		if !errors.As(gotErr, &expectedErr) {
+			t.Logf("Expected: %T", expectedErr)
+			t.Logf("Got: %T", gotErr)
+			t.Error("Invalid error returned")
+		}
+	})
+
+	t.Run("invalid low", func(t *testing.T) {
+		client, conn := GetAuthenticatedClient(t)
+		conn.RecordPrintfLine(t, "231 list of new newsgroups follows")
+		conn.RecordDotMessage(t, "group3 99 a y")
+
+		_, gotErr := client.Newsgroups(time.Now())
+		var expectedErr *strconv.NumError
+		if !errors.As(gotErr, &expectedErr) {
+			t.Logf("Expected: %T: %v", expectedErr, expectedErr)
+			t.Logf("Got: %T: %v", gotErr, gotErr)
+			t.Error("Invalid error returned")
+		}
+	})
+}
+
+func TestClient_Group(t *testing.T) {
+	t.Run("successful", func(t *testing.T) {
+		client, conn := GetAuthenticatedClient(t)
+		conn.RecordPrintfLine(t, "211 491902 1 491902 group1")
+
+		expectedGroup := nntp.NewsgroupDetail{
+			Name:   "group1",
+			Low:    1,
+			High:   491902,
+			Number: 491902,
+		}
+
+		gotGroup, err := client.Group("group1")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(gotGroup, expectedGroup) {
+			t.Logf("Expected: %s", toJSON(t, expectedGroup))
+			t.Logf("Got: %s", toJSON(t, gotGroup))
+			t.Fatal("Returned group do not match expected group")
+		}
+	})
+
+	t.Run("invalid num", func(t *testing.T) {
+		client, conn := GetAuthenticatedClient(t)
+		conn.RecordPrintfLine(t, "211 y 1 491902 group1")
+
+		_, gotErr := client.Group("group1")
+		var expectedErr *strconv.NumError
+		if !errors.As(gotErr, &expectedErr) {
+			t.Logf("Expected: %T: %v", expectedErr, expectedErr)
+			t.Logf("Got: %T: %v", gotErr, gotErr)
+			t.Error("Invalid error returned")
+		}
+	})
+
+	t.Run("invalid low", func(t *testing.T) {
+		client, conn := GetAuthenticatedClient(t)
+		conn.RecordPrintfLine(t, "211 491902 y 491902 group1")
+
+		_, gotErr := client.Group("group1")
+		var expectedErr *strconv.NumError
+		if !errors.As(gotErr, &expectedErr) {
+			t.Logf("Expected: %T: %v", expectedErr, expectedErr)
+			t.Logf("Got: %T: %v", gotErr, gotErr)
+			t.Error("Invalid error returned")
+		}
+	})
+
+	t.Run("invalid high", func(t *testing.T) {
+		client, conn := GetAuthenticatedClient(t)
+		conn.RecordPrintfLine(t, "211 491902 1 y group1")
+
+		_, gotErr := client.Group("group1")
+		var expectedErr *strconv.NumError
+		if !errors.As(gotErr, &expectedErr) {
+			t.Logf("Expected: %T: %v", expectedErr, expectedErr)
+			t.Logf("Got: %T: %v", gotErr, gotErr)
+			t.Error("Invalid error returned")
+		}
+	})
+}
+
+func toJSON(t testing.TB, i interface{}) string {
+	b, err := json.MarshalIndent(i, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal %T to JSON: %v", i, err)
+	}
+
+	return string(b)
+}
+
+func TestClient_Xzver(t *testing.T) {
+	client, conn := GetAuthenticatedClient(t)
+	client.SetOverviewFormat(nntp.DefaultFormat())
+	conn.RecordPrintfLine(t, "224 Overview information follows")
+	conn.RecordCompressedDotMessage(t, `1	some subject	some author	Sun, 10 May 2020 00:32:22 +0000	<some-msg-id>		67755	519
+2	some subject	some author	Sun, 10 May 2020 00:32:22 +0000	<some-msg-id>		67755	519
+`)
+
+	gotHeaders, err := client.Xzver("1-1000")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedHeaders := []nntp.Header{
+		{
+			MessageNumber: 1,
+			Subject:       "some subject",
+			Author:        "some author",
+			Date:          time.Date(2020, 5, 10, 0, 32, 22, 0, time.UTC),
+			MessageID:     "<some-msg-id>",
+			References:    "",
+			Bytes:         67755,
+			Lines:         519,
+		},
+		{
+			MessageNumber: 2,
+			Subject:       "some subject",
+			Author:        "some author",
+			Date:          time.Date(2020, 5, 10, 0, 32, 22, 0, time.UTC),
+			MessageID:     "<some-msg-id>",
+			References:    "",
+			Bytes:         67755,
+			Lines:         519,
+		},
+	}
+
+	t.Logf("Expected headers: \n%s", toJSON(t, expectedHeaders))
+	t.Logf("Got headers: %v", toJSON(t, gotHeaders))
+	if diff := deep.Equal(gotHeaders, expectedHeaders); diff != nil {
+		t.Errorf("Returned headers don't match expected headers: Diff: \n%v", diff)
+	}
+}
