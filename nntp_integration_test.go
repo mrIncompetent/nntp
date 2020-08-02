@@ -19,7 +19,7 @@ var (
 )
 
 const (
-	testGroup = "alt.binaries.es"
+	testGroup = "a.b.binaries.tvseries"
 )
 
 type LoggingConnection struct {

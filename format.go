@@ -40,7 +40,7 @@ func (h *HeaderFormat) FieldToHeader(idx int, value string, header *Header) (err
 	case "from:":
 		header.Author = value
 	case "date:":
-		if header.Date, err = parseDate(value); err != nil {
+		if header.Date, err = ParseDate(value); err != nil {
 			return fmt.Errorf("failed to parse date '%s': %v", value, err)
 		}
 	case "message-id:":
@@ -91,9 +91,10 @@ func (h *HeaderFormat) ParseHeader(line string) (header Header, err error) {
 	return header, err
 }
 
-func parseDate(s string) (time.Time, error) {
+func ParseDate(s string) (time.Time, error) {
 	layouts := []string{
 		time.RFC1123Z,
+		time.RFC1123,
 		"2 Jan 2006 15:04:05 -0700",
 	}
 

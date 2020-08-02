@@ -145,3 +145,36 @@ func TestHeaderFormat_ParseHeader(t *testing.T) {
 		})
 	}
 }
+
+func TestParseDate(t *testing.T) {
+	loc, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Location: %s", loc.String())
+
+	expectedDate := time.Date(2020, 1, 1, 12, 34, 56, 0, loc)
+
+	dates := []string{
+		"1 Jan 2020 12:34:56 +0100",
+		"Wed, 01 Jan 2020 12:34:56 +0100",
+		"Wed, 01 Jan 2020 13:34:56 CEST",
+	}
+
+	for _, s := range dates {
+		t.Run(s, func(t *testing.T) {
+			gotDate, err := nntp.ParseDate(s)
+			if err != nil {
+				t.Fatalf("Failed to parse date: %s: %v", s, err)
+			}
+
+			t.Logf("Got date:      %s", gotDate.Format(time.RFC3339))
+			t.Logf("Expected date: %s", expectedDate.Format(time.RFC3339))
+
+			if !gotDate.Equal(expectedDate) {
+				t.Error("Returned date does not match expected date")
+			}
+		})
+	}
+}
