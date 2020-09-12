@@ -158,6 +158,18 @@ authinfo user Name|pass Password
 	}
 }
 
+func TestClient_Date(t *testing.T) {
+	client, conn := GetAuthenticatedClient(t)
+	conn.RecordPrintfLine(t, "111 19990623135624")
+
+	date, err := client.Date()
+	require.NoError(t, err, "Failed to call date")
+
+	expectedDate := time.Date(1999, 6, 23, 13, 56, 24, 0, time.UTC)
+
+	assert.Equal(t, expectedDate, date)
+}
+
 func TestClient_Newsgroups(t *testing.T) {
 	t.Run("successful", func(t *testing.T) {
 		client, conn := GetAuthenticatedClient(t)

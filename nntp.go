@@ -105,6 +105,30 @@ func (c *Client) Help() (string, error) {
 	return b.String(), err
 }
 
+func (c *Client) Date() (time.Time, error) {
+	const nntpDateLayout = "20060102150405"
+
+	id, err := c.connection.Cmd("DATE")
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	c.connection.StartResponse(id)
+	defer c.connection.EndResponse(id)
+
+	_, s, err := c.connection.ReadCodeLine(111)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	date, err := time.ParseInLocation(nntpDateLayout, s, time.UTC)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse returned date: %w", err)
+	}
+
+	return date, nil
+}
+
 type NewsgroupStatus string
 
 const (

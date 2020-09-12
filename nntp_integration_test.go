@@ -86,6 +86,15 @@ func TestClient_Integration_Help(t *testing.T) {
 	t.Logf("Help: %s", help)
 }
 
+func TestClient_Integration_Date(t *testing.T) {
+	client := GetAuthenticatedIntegrationClient(t)
+
+	date, err := client.Date()
+	require.NoError(t, err, "Failed to call date")
+
+	t.Logf("Date: %s", date)
+}
+
 func TestClient_Integration_Newsgroups(t *testing.T) {
 	client := GetAuthenticatedIntegrationClient(t)
 
