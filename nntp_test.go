@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-test/deep"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/mrincompetent/nntp"
 )
@@ -353,7 +353,7 @@ func TestClient_Xzver(t *testing.T) {
 			MessageNumber: 1,
 			Subject:       "some subject",
 			Author:        "some author",
-			Date:          time.Date(2020, 5, 10, 0, 32, 22, 0, time.UTC),
+			Date:          time.Date(2020, 5, 10, 0, 32, 22, 0, time.FixedZone("", 0)),
 			MessageID:     "<some-msg-id>",
 			References:    "",
 			Bytes:         67755,
@@ -363,7 +363,7 @@ func TestClient_Xzver(t *testing.T) {
 			MessageNumber: 2,
 			Subject:       "some subject",
 			Author:        "some author",
-			Date:          time.Date(2020, 5, 10, 0, 32, 22, 0, time.UTC),
+			Date:          time.Date(2020, 5, 10, 0, 32, 22, 0, time.FixedZone("", 0)),
 			MessageID:     "<some-msg-id>",
 			References:    "",
 			Bytes:         67755,
@@ -373,7 +373,6 @@ func TestClient_Xzver(t *testing.T) {
 
 	t.Logf("Expected headers: \n%s", toJSON(t, expectedHeaders))
 	t.Logf("Got headers: %v", toJSON(t, gotHeaders))
-	if diff := deep.Equal(gotHeaders, expectedHeaders); diff != nil {
-		t.Errorf("Returned headers don't match expected headers: Diff: \n%v", diff)
-	}
+
+	assert.Equal(t, expectedHeaders, gotHeaders)
 }

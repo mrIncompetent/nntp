@@ -4,16 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-test/deep"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/mrincompetent/nntp"
 )
 
 func TestHeaderFormat_ParseHeader(t *testing.T) {
-	locationCST, err := time.LoadLocation("America/Panama")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testTimezone := time.FixedZone("", -int(5*time.Hour.Seconds()))
 
 	tests := []struct {
 		name           string
@@ -38,7 +35,7 @@ func TestHeaderFormat_ParseHeader(t *testing.T) {
 				MessageNumber: 1,
 				Subject:       "some subject",
 				Author:        "some author",
-				Date:          time.Date(2020, 5, 10, 0, 32, 22, 0, time.UTC),
+				Date:          time.Date(2020, 5, 10, 0, 32, 22, 0, time.FixedZone("", 0)),
 				MessageID:     "<some-msg-id>",
 				References:    "",
 				Bytes:         67755,
@@ -65,7 +62,7 @@ func TestHeaderFormat_ParseHeader(t *testing.T) {
 				MessageNumber: 3000234,
 				Subject:       "some other subject",
 				Author:        "\"Test Author\" <test@example.com>",
-				Date:          time.Date(1998, 10, 6, 4, 38, 40, 0, locationCST),
+				Date:          time.Date(1998, 10, 6, 4, 38, 40, 0, testTimezone),
 				MessageID:     "<some-other-msg-id>",
 				References:    "<some-other-ref@example.net>",
 				Bytes:         1234,
@@ -92,7 +89,7 @@ func TestHeaderFormat_ParseHeader(t *testing.T) {
 				MessageNumber: 0,
 				Subject:       "some other subject",
 				Author:        "\"Test Author\" <test@example.com>",
-				Date:          time.Date(1998, 10, 6, 4, 38, 40, 0, locationCST),
+				Date:          time.Date(1998, 10, 6, 4, 38, 40, 0, testTimezone),
 				MessageID:     "<some-other-msg-id>",
 				References:    "<some-other-ref@example.net>",
 				Bytes:         1234,
@@ -120,7 +117,7 @@ func TestHeaderFormat_ParseHeader(t *testing.T) {
 				MessageNumber: 3000235,
 				Subject:       "Another test article",
 				Author:        "<test@example.com> (Test Author)",
-				Date:          time.Date(1998, 10, 6, 4, 38, 45, 0, locationCST),
+				Date:          time.Date(1998, 10, 6, 4, 38, 45, 0, testTimezone),
 				MessageID:     "<some-other-msg-id>",
 				References:    "",
 				Bytes:         4818,
@@ -140,9 +137,7 @@ func TestHeaderFormat_ParseHeader(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if diff := deep.Equal(header, test.expectedHeader); diff != nil {
-				t.Errorf("Diff: %v", diff)
-			}
+			assert.Equal(t, test.expectedHeader, header)
 		})
 	}
 }
