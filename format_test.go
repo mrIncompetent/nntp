@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/mrincompetent/nntp"
 )
@@ -133,9 +134,7 @@ func TestHeaderFormat_ParseHeader(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			header, err := test.format.ParseHeader(test.line)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err, "Failed to parse header")
 
 			assert.Equal(t, test.expectedHeader, header)
 		})
@@ -144,11 +143,7 @@ func TestHeaderFormat_ParseHeader(t *testing.T) {
 
 func TestParseDate(t *testing.T) {
 	loc, err := time.LoadLocation("Europe/Berlin")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Logf("Location: %s", loc.String())
+	require.NoError(t, err, "Failed to get timezone")
 
 	expectedDate := time.Date(2020, 1, 1, 12, 34, 56, 0, loc)
 
@@ -161,9 +156,7 @@ func TestParseDate(t *testing.T) {
 	for _, s := range dates {
 		t.Run(s, func(t *testing.T) {
 			gotDate, err := nntp.ParseDate(s)
-			if err != nil {
-				t.Fatalf("Failed to parse date: %s: %v", s, err)
-			}
+			require.NoError(t, err, "Failed to parse date")
 
 			t.Logf("Got date:      %s", gotDate.Format(time.RFC3339))
 			t.Logf("Expected date: %s", expectedDate.Format(time.RFC3339))

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/mrincompetent/nntp"
 )
@@ -38,61 +39,45 @@ func (r *bufferConnection) Close() error {
 func (r *bufferConnection) RecordPrintfLine(t testing.TB, line string, args ...interface{}) {
 	bufWriter := bufio.NewWriter(r.read)
 	defer func() {
-		if err := bufWriter.Flush(); err != nil {
-			t.Fatalf("failed to flush: %v", err)
-		}
+		require.NoError(t, bufWriter.Flush(), "Failed to flush")
 	}()
 
-	if err := textproto.NewWriter(bufWriter).PrintfLine(line, args...); err != nil {
-		t.Fatalf("failed to write: %v", err)
-	}
+	require.NoError(t, textproto.NewWriter(bufWriter).PrintfLine(line, args...), "Failed to write")
 }
 
 func (r *bufferConnection) RecordDotMessage(t testing.TB, s string) {
 	bufWriter := bufio.NewWriter(r.read)
 	defer func() {
-		if err := bufWriter.Flush(); err != nil {
-			t.Fatalf("failed to flush: %v", err)
-		}
+		require.NoError(t, bufWriter.Flush(), "Failed to flush")
 	}()
 
 	txtWriter := textproto.NewWriter(bufWriter).DotWriter()
 	defer func() {
-		if err := txtWriter.Close(); err != nil {
-			t.Fatalf("failed to close: %v", err)
-		}
+		require.NoError(t, txtWriter.Close(), "Failed to close")
 	}()
 
-	if _, err := txtWriter.Write([]byte(s)); err != nil {
-		t.Fatalf("failed to write: %v", err)
-	}
+	_, err := txtWriter.Write([]byte(s))
+	require.NoError(t, err, "Failed to write")
 }
 
 func (r *bufferConnection) RecordCompressedDotMessage(t testing.TB, s string) {
 	zlibWriter := zlib.NewWriter(r.read)
 	defer func() {
-		if err := zlibWriter.Close(); err != nil {
-			t.Fatalf("failed to flush: %v", err)
-		}
+		require.NoError(t, zlibWriter.Close(), "Failed to close")
 	}()
 
 	bufWriter := bufio.NewWriter(zlibWriter)
 	defer func() {
-		if err := bufWriter.Flush(); err != nil {
-			t.Fatalf("failed to flush: %v", err)
-		}
+		require.NoError(t, bufWriter.Flush(), "Failed to flush")
 	}()
 
 	txtWriter := textproto.NewWriter(bufWriter).DotWriter()
 	defer func() {
-		if err := txtWriter.Close(); err != nil {
-			t.Fatalf("failed to close: %v", err)
-		}
+		require.NoError(t, txtWriter.Close(), "Failed to close")
 	}()
 
-	if _, err := txtWriter.Write([]byte(s)); err != nil {
-		t.Fatalf("failed to write: %v", err)
-	}
+	_, err := txtWriter.Write([]byte(s))
+	require.NoError(t, err, "Failed to write")
 }
 
 func newBufferConnection() *bufferConnection {
@@ -107,9 +92,7 @@ func GetClient(t testing.TB) (*nntp.Client, *bufferConnection) {
 	conn.RecordPrintfLine(t, "200 some-newsserver")
 
 	client, err := nntp.NewFromConn(conn)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "Failed to create new client from connection")
 
 	return client, conn
 }
@@ -119,9 +102,8 @@ func GetAuthenticatedClient(t testing.TB) (*nntp.Client, *bufferConnection) {
 	conn.RecordPrintfLine(t, "381 PASS required")
 	conn.RecordPrintfLine(t, "281 Ok")
 
-	if err := client.Authenticate("foo", "bar"); err != nil {
-		t.Errorf("failed to authenticate: %v", err)
-	}
+	err := client.Authenticate("foo", "bar")
+	require.NoError(t, err, "Failed to authenticate")
 
 	return client, conn
 }
@@ -167,9 +149,7 @@ authinfo user Name|pass Password
 	conn.RecordDotMessage(t, expectedHelp)
 
 	gotHelp, err := client.Help()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "Failed to call help")
 
 	if gotHelp != expectedHelp {
 		t.Logf("Expected help: \n%s", expectedHelp)
@@ -208,9 +188,7 @@ group3 99 80 m
 		}
 
 		gotGroups, err := client.Newsgroups(time.Now())
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err, "Failed to list newsgroups")
 
 		if !reflect.DeepEqual(gotGroups, expectedGroups) {
 			t.Logf("Expected: %s", toJSON(t, expectedGroups))
@@ -275,9 +253,7 @@ func TestClient_Group(t *testing.T) {
 		}
 
 		gotGroup, err := client.Group("group1")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err, "Failed to change to group")
 
 		if !reflect.DeepEqual(gotGroup, expectedGroup) {
 			t.Logf("Expected: %s", toJSON(t, expectedGroup))
@@ -328,9 +304,7 @@ func TestClient_Group(t *testing.T) {
 
 func toJSON(t testing.TB, i interface{}) string {
 	b, err := json.MarshalIndent(i, "", "  ")
-	if err != nil {
-		t.Fatalf("failed to marshal %T to JSON: %v", i, err)
-	}
+	require.NoError(t, err, "Failed to marshal %T to JSON", i)
 
 	return string(b)
 }
@@ -344,9 +318,7 @@ func TestClient_Xzver(t *testing.T) {
 `)
 
 	gotHeaders, err := client.Xzver("1-1000")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "Failed to list compressed headers")
 
 	expectedHeaders := []nntp.Header{
 		{
