@@ -88,7 +88,6 @@ func (h *OverviewFormat) ParseXoverLine(line string) (header Header, err error) 
 	}
 
 	return header, err
-
 }
 
 func ParseDate(s string) (time.Time, error) {

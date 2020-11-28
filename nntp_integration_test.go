@@ -15,9 +15,7 @@ import (
 	"github.com/mrincompetent/nntp"
 )
 
-var (
-	testTime = time.Date(2020, 5, 1, 0, 0, 0, 0, time.Now().Location())
-)
+var testTime = time.Date(2020, 5, 1, 0, 0, 0, 0, time.Now().Location())
 
 const (
 	testGroup = "a.b.binaries.tvseries"
