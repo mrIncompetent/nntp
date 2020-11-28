@@ -12,7 +12,7 @@ import (
 type Client struct {
 	connection *textproto.Conn
 
-	headerFormat *HeaderFormat
+	headerFormat *OverviewFormat
 }
 
 func NewFromConn(conn io.ReadWriteCloser) (*Client, error) {
@@ -249,7 +249,7 @@ func (c *Client) Group(g string) (group NewsgroupDetail, err error) {
 	return group, err
 }
 
-func (c *Client) SetOverviewFormat(format *HeaderFormat) {
+func (c *Client) SetOverviewFormat(format *OverviewFormat) {
 	c.headerFormat = format
 }
 
@@ -271,7 +271,7 @@ func (c *Client) InitializeOverviewFormat() error {
 		return err
 	}
 
-	c.headerFormat = NewHeaderFormat(lines)
+	c.headerFormat = NewOverviewFormat(lines)
 
 	return nil
 }
@@ -302,7 +302,7 @@ func (c *Client) Xover(r string) ([]Header, error) {
 
 	headers := make([]Header, len(lines))
 	for idx := range lines {
-		headers[idx], err = c.headerFormat.ParseHeader(lines[idx])
+		headers[idx], err = c.headerFormat.ParseXoverLine(lines[idx])
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse line '%s': %w", lines[idx], err)
 		}

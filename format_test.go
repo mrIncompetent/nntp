@@ -10,19 +10,19 @@ import (
 	"github.com/mrincompetent/nntp"
 )
 
-func TestHeaderFormat_ParseHeader(t *testing.T) {
+func TestHeaderFormat_ParseXoverLine(t *testing.T) {
 	testTimezone := time.FixedZone("", -int(5*time.Hour.Seconds()))
 
 	tests := []struct {
 		name           string
 		line           string
-		format         *nntp.HeaderFormat
+		format         *nntp.OverviewFormat
 		expectedHeader nntp.Header
 	}{
 		{
 			name: "successful",
 			line: `1	some subject	some author	Sun, 10 May 2020 00:32:22 +0000	<some-msg-id>		67755	519	Xref: news.some-newsserver.com some-alternative-group-1:123 some-alternative-group-2:456 some-alternative-group-3:789`,
-			format: nntp.NewHeaderFormat([]string{
+			format: nntp.NewOverviewFormat([]string{
 				"Subject:",
 				"From:",
 				"Date:",
@@ -49,7 +49,7 @@ func TestHeaderFormat_ParseHeader(t *testing.T) {
 		{
 			name: "successful - rfc3977 - 1",
 			line: `3000234	some other subject	"Test Author" <test@example.com>	6 Oct 1998 04:38:40 -0500	<some-other-msg-id>	<some-other-ref@example.net>	1234	17	Xref: news.some-newsserver.com some-alternative-group-1:123`,
-			format: nntp.NewHeaderFormat([]string{
+			format: nntp.NewOverviewFormat([]string{
 				"Subject:",
 				"From:",
 				"Date:",
@@ -76,7 +76,7 @@ func TestHeaderFormat_ParseHeader(t *testing.T) {
 		{
 			name: "successful - rfc3977 - 2",
 			line: `0	some other subject	"Test Author" <test@example.com>	6 Oct 1998 04:38:40 -0500	<some-other-msg-id>	<some-other-ref@example.net>	1234	17	Xref: news.some-newsserver.com some-alternative-group-1:123`,
-			format: nntp.NewHeaderFormat([]string{
+			format: nntp.NewOverviewFormat([]string{
 				"Subject:",
 				"From:",
 				"Date:",
@@ -103,7 +103,7 @@ func TestHeaderFormat_ParseHeader(t *testing.T) {
 		{
 			name: "successful - rfc3977 - 3",
 			line: `3000235	Another test article	<test@example.com> (Test Author)	6 Oct 1998 04:38:45 -0500	<some-other-msg-id>		4818	37		Distribution: fi`,
-			format: nntp.NewHeaderFormat([]string{
+			format: nntp.NewOverviewFormat([]string{
 				"Subject:",
 				"From:",
 				"Date:",
@@ -133,7 +133,7 @@ func TestHeaderFormat_ParseHeader(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			header, err := test.format.ParseHeader(test.line)
+			header, err := test.format.ParseXoverLine(test.line)
 			require.NoError(t, err, "Failed to parse header")
 
 			assert.Equal(t, test.expectedHeader, header)

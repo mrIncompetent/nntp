@@ -302,7 +302,7 @@ func toJSON(t testing.TB, i interface{}) string {
 
 func TestClient_Xzver(t *testing.T) {
 	client, conn := GetAuthenticatedClient(t)
-	client.SetOverviewFormat(nntp.DefaultFormat())
+	client.SetOverviewFormat(nntp.DefaultOverviewFormat())
 	conn.RecordPrintfLine(t, "224 Overview information follows")
 	conn.RecordDotMessage(t, `1	some subject	some author	Sun, 10 May 2020 00:32:22 +0000	<some-msg-id>		67755	519
 2	some subject	some author	Sun, 10 May 2020 00:32:22 +0000	<some-msg-id>		67755	519

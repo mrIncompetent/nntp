@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-func NewHeaderFormat(fields []string) *HeaderFormat {
-	format := &HeaderFormat{
+func NewOverviewFormat(fields []string) *OverviewFormat {
+	format := &OverviewFormat{
 		fieldNames:          make([]string, len(fields)),
 		lowercaseFieldNames: make([]string, len(fields)),
 	}
@@ -21,12 +21,12 @@ func NewHeaderFormat(fields []string) *HeaderFormat {
 	return format
 }
 
-type HeaderFormat struct {
+type OverviewFormat struct {
 	fieldNames          []string
 	lowercaseFieldNames []string
 }
 
-func (h *HeaderFormat) FieldToHeader(idx int, value string, header *Header) (err error) {
+func (h *OverviewFormat) FieldToHeader(idx int, value string, header *Header) (err error) {
 	if idx+1 > len(h.fieldNames) {
 		return fmt.Errorf("header format only knows about %d field(s). %dth field given", len(h.fieldNames), idx+1)
 	}
@@ -73,22 +73,22 @@ func (h *HeaderFormat) FieldToHeader(idx int, value string, header *Header) (err
 	return nil
 }
 
-func (h *HeaderFormat) ParseHeader(line string) (header Header, err error) {
-	parts := strings.Split(line, "\t")
-
+func (h *OverviewFormat) ParseXoverLine(line string) (header Header, err error) {
+	lines := strings.Split(line, "\t")
 	// MessageNumber doesn't get mentioned in the format, but it's always the first field.
-	if header.MessageNumber, err = strconv.ParseUint(parts[0], 10, 64); err != nil {
-		return header, fmt.Errorf("failed to parse message number '%s': %w", parts[0], err)
+	if header.MessageNumber, err = strconv.ParseUint(lines[0], 10, 64); err != nil {
+		return header, fmt.Errorf("failed to parse message number '%s': %w", lines[0], err)
 	}
 
-	parts = parts[1:]
-	for idx := range parts {
-		if err := h.FieldToHeader(idx, parts[idx], &header); err != nil {
-			return header, fmt.Errorf("failed to map field %d ('%s'): %w", idx, parts[idx], err)
+	lines = lines[1:]
+	for idx := range lines {
+		if err := h.FieldToHeader(idx, lines[idx], &header); err != nil {
+			return header, fmt.Errorf("failed to map field %d ('%s'): %w", idx, lines[idx], err)
 		}
 	}
 
 	return header, err
+
 }
 
 func ParseDate(s string) (time.Time, error) {
@@ -110,8 +110,8 @@ func ParseDate(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("does not match known format. Known formats: %v", layouts)
 }
 
-func DefaultFormat() *HeaderFormat {
-	return NewHeaderFormat([]string{
+func DefaultOverviewFormat() *OverviewFormat {
+	return NewOverviewFormat([]string{
 		"Subject:",
 		"From:",
 		"Date:",
