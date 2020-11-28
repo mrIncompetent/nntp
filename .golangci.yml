@@ -1,16 +1,17 @@
 run:
-  tests: false
+  tests: true
   timeout: 10m
 service:
-  golangci-lint-version: 1.23.8
+  golangci-lint-version: 1.32.2
 linters:
   enable-all: true
   disable:
-#    - maligned
-#    - prealloc
-#    - gochecknoglobals
-#    - gochecknoinits
     - gomnd
+    - godot
+    - wrapcheck
+    - funlen
+    - lll
+    - gci
 linters-settings:
   errcheck:
     check-type-assertions: true
