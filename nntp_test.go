@@ -3,7 +3,6 @@ package nntp_test
 import (
 	"bufio"
 	"bytes"
-	"compress/zlib"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -47,26 +46,6 @@ func (r *bufferConnection) RecordPrintfLine(t testing.TB, line string, args ...i
 
 func (r *bufferConnection) RecordDotMessage(t testing.TB, s string) {
 	bufWriter := bufio.NewWriter(r.read)
-	defer func() {
-		require.NoError(t, bufWriter.Flush(), "Failed to flush")
-	}()
-
-	txtWriter := textproto.NewWriter(bufWriter).DotWriter()
-	defer func() {
-		require.NoError(t, txtWriter.Close(), "Failed to close")
-	}()
-
-	_, err := txtWriter.Write([]byte(s))
-	require.NoError(t, err, "Failed to write")
-}
-
-func (r *bufferConnection) RecordCompressedDotMessage(t testing.TB, s string) {
-	zlibWriter := zlib.NewWriter(r.read)
-	defer func() {
-		require.NoError(t, zlibWriter.Close(), "Failed to close")
-	}()
-
-	bufWriter := bufio.NewWriter(zlibWriter)
 	defer func() {
 		require.NoError(t, bufWriter.Flush(), "Failed to flush")
 	}()
@@ -325,11 +304,11 @@ func TestClient_Xzver(t *testing.T) {
 	client, conn := GetAuthenticatedClient(t)
 	client.SetOverviewFormat(nntp.DefaultFormat())
 	conn.RecordPrintfLine(t, "224 Overview information follows")
-	conn.RecordCompressedDotMessage(t, `1	some subject	some author	Sun, 10 May 2020 00:32:22 +0000	<some-msg-id>		67755	519
+	conn.RecordDotMessage(t, `1	some subject	some author	Sun, 10 May 2020 00:32:22 +0000	<some-msg-id>		67755	519
 2	some subject	some author	Sun, 10 May 2020 00:32:22 +0000	<some-msg-id>		67755	519
 `)
 
-	gotHeaders, err := client.Xzver("1-1000")
+	gotHeaders, err := client.Xover("1-1000")
 	require.NoError(t, err, "Failed to list compressed headers")
 
 	expectedHeaders := []nntp.Header{

@@ -119,7 +119,7 @@ func TestClient_Integration_Xover(t *testing.T) {
 	group, err := client.Group(testGroup)
 	require.NoError(t, err, "Failed to change group")
 
-	headers, err := client.Xzver(fmt.Sprintf("%d-%d", group.High-100, group.High))
+	headers, err := client.Xover(fmt.Sprintf("%d-%d", group.High-100, group.High))
 	require.NoError(t, err, "Failed to list compressed headers")
 
 	for _, header := range headers {

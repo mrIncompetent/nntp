@@ -1,8 +1,6 @@
 package nntp
 
 import (
-	"bufio"
-	"compress/zlib"
 	"fmt"
 	"io"
 	"net/textproto"
@@ -278,14 +276,14 @@ func (c *Client) InitializeOverviewFormat() error {
 	return nil
 }
 
-func (c *Client) Xzver(r string) ([]Header, error) {
+func (c *Client) Xover(r string) ([]Header, error) {
 	if c.headerFormat == nil {
 		if err := c.InitializeOverviewFormat(); err != nil {
 			return nil, fmt.Errorf("failed to initialize overview format: %w", err)
 		}
 	}
 
-	id, err := c.connection.Cmd("XZVER %s", r)
+	id, err := c.connection.Cmd("XOVER %s", r)
 	if err != nil {
 		return nil, err
 	}
@@ -297,15 +295,7 @@ func (c *Client) Xzver(r string) ([]Header, error) {
 		return nil, err
 	}
 
-	compressedReader, err := zlib.NewReader(c.connection.R)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create compressed reader: %w", err)
-	}
-	defer compressedReader.Close()
-
-	conn := textproto.NewReader(bufio.NewReader(compressedReader))
-
-	lines, err := conn.ReadDotLines()
+	lines, err := c.connection.ReadDotLines()
 	if err != nil {
 		return nil, err
 	}
