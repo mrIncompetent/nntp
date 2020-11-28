@@ -132,6 +132,7 @@ func TestHeaderFormat_ParseXoverLine(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			header, err := test.format.ParseXoverLine(test.line)
 			require.NoError(t, err, "Failed to parse header")
@@ -154,6 +155,7 @@ func TestParseDate(t *testing.T) {
 	}
 
 	for _, s := range dates {
+		s := s
 		t.Run(s, func(t *testing.T) {
 			gotDate, err := nntp.ParseDate(s)
 			require.NoError(t, err, "Failed to parse date")

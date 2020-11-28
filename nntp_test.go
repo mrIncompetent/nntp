@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/textproto"
 	"reflect"
 	"strconv"
@@ -37,6 +36,7 @@ func (r *bufferConnection) Close() error {
 
 func (r *bufferConnection) RecordPrintfLine(t testing.TB, line string, args ...interface{}) {
 	bufWriter := bufio.NewWriter(r.read)
+
 	defer func() {
 		require.NoError(t, bufWriter.Flush(), "Failed to flush")
 	}()
@@ -46,11 +46,13 @@ func (r *bufferConnection) RecordPrintfLine(t testing.TB, line string, args ...i
 
 func (r *bufferConnection) RecordDotMessage(t testing.TB, s string) {
 	bufWriter := bufio.NewWriter(r.read)
+
 	defer func() {
 		require.NoError(t, bufWriter.Flush(), "Failed to flush")
 	}()
 
 	txtWriter := textproto.NewWriter(bufWriter).DotWriter()
+
 	defer func() {
 		require.NoError(t, txtWriter.Close(), "Failed to close")
 	}()
@@ -66,7 +68,7 @@ func newBufferConnection() *bufferConnection {
 	}
 }
 
-func GetClient(t testing.TB) (*nntp.Client, *bufferConnection) {
+func getClient(t testing.TB) (*nntp.Client, *bufferConnection) {
 	conn := newBufferConnection()
 	conn.RecordPrintfLine(t, "200 some-newsserver")
 
@@ -76,8 +78,8 @@ func GetClient(t testing.TB) (*nntp.Client, *bufferConnection) {
 	return client, conn
 }
 
-func GetAuthenticatedClient(t testing.TB) (*nntp.Client, *bufferConnection) {
-	client, conn := GetClient(t)
+func getAuthenticatedClient(t testing.TB) (*nntp.Client, *bufferConnection) {
+	client, conn := getClient(t)
 	conn.RecordPrintfLine(t, "381 PASS required")
 	conn.RecordPrintfLine(t, "281 Ok")
 
@@ -88,7 +90,7 @@ func GetAuthenticatedClient(t testing.TB) (*nntp.Client, *bufferConnection) {
 }
 
 func TestClient_Authenticate(t *testing.T) {
-	GetAuthenticatedClient(t)
+	getAuthenticatedClient(t)
 }
 
 func TestClient_Help(t *testing.T) {
@@ -123,7 +125,7 @@ xfeature compress gzip [terminator]
 authinfo user Name|pass Password
 `
 
-	client, conn := GetAuthenticatedClient(t)
+	client, conn := getAuthenticatedClient(t)
 	conn.RecordPrintfLine(t, "100 Legal commands")
 	conn.RecordDotMessage(t, expectedHelp)
 
@@ -138,7 +140,7 @@ authinfo user Name|pass Password
 }
 
 func TestClient_Date(t *testing.T) {
-	client, conn := GetAuthenticatedClient(t)
+	client, conn := getAuthenticatedClient(t)
 	conn.RecordPrintfLine(t, "111 19990623135624")
 
 	date, err := client.Date()
@@ -151,7 +153,7 @@ func TestClient_Date(t *testing.T) {
 
 func TestClient_Newsgroups(t *testing.T) {
 	t.Run("successful", func(t *testing.T) {
-		client, conn := GetAuthenticatedClient(t)
+		client, conn := getAuthenticatedClient(t)
 		conn.RecordPrintfLine(t, "231 list of new newsgroups follows")
 		conn.RecordDotMessage(t, `group1 4 1 y
 group2 89 56 n
@@ -189,21 +191,20 @@ group3 99 80 m
 	})
 
 	t.Run("invalid status", func(t *testing.T) {
-		client, conn := GetAuthenticatedClient(t)
+		client, conn := getAuthenticatedClient(t)
 		conn.RecordPrintfLine(t, "231 list of new newsgroups follows")
 		conn.RecordDotMessage(t, "group3 99 80 zzz")
 
 		_, gotErr := client.Newsgroups(time.Now())
-		expectedErr := fmt.Errorf("invalid newsgroup status '%s'", "zzz")
-		if !errors.Is(gotErr, gotErr) {
-			t.Logf("Expected: %v", expectedErr)
+		if !errors.Is(gotErr, nntp.ErrInvalidNewsGroupStatus) {
+			t.Logf("Expected: %v", nntp.ErrInvalidNewsGroupStatus)
 			t.Logf("Got: %v", gotErr)
 			t.Error("Invalid error returned")
 		}
 	})
 
 	t.Run("invalid high", func(t *testing.T) {
-		client, conn := GetAuthenticatedClient(t)
+		client, conn := getAuthenticatedClient(t)
 		conn.RecordPrintfLine(t, "231 list of new newsgroups follows")
 		conn.RecordDotMessage(t, "group3 a 80 y")
 
@@ -217,7 +218,7 @@ group3 99 80 m
 	})
 
 	t.Run("invalid low", func(t *testing.T) {
-		client, conn := GetAuthenticatedClient(t)
+		client, conn := getAuthenticatedClient(t)
 		conn.RecordPrintfLine(t, "231 list of new newsgroups follows")
 		conn.RecordDotMessage(t, "group3 99 a y")
 
@@ -233,7 +234,7 @@ group3 99 80 m
 
 func TestClient_Group(t *testing.T) {
 	t.Run("successful", func(t *testing.T) {
-		client, conn := GetAuthenticatedClient(t)
+		client, conn := getAuthenticatedClient(t)
 		conn.RecordPrintfLine(t, "211 491902 1 491902 group1")
 
 		expectedGroup := nntp.NewsgroupDetail{
@@ -254,7 +255,7 @@ func TestClient_Group(t *testing.T) {
 	})
 
 	t.Run("invalid num", func(t *testing.T) {
-		client, conn := GetAuthenticatedClient(t)
+		client, conn := getAuthenticatedClient(t)
 		conn.RecordPrintfLine(t, "211 y 1 491902 group1")
 
 		_, gotErr := client.Group("group1")
@@ -267,7 +268,7 @@ func TestClient_Group(t *testing.T) {
 	})
 
 	t.Run("invalid low", func(t *testing.T) {
-		client, conn := GetAuthenticatedClient(t)
+		client, conn := getAuthenticatedClient(t)
 		conn.RecordPrintfLine(t, "211 491902 y 491902 group1")
 
 		_, gotErr := client.Group("group1")
@@ -280,7 +281,7 @@ func TestClient_Group(t *testing.T) {
 	})
 
 	t.Run("invalid high", func(t *testing.T) {
-		client, conn := GetAuthenticatedClient(t)
+		client, conn := getAuthenticatedClient(t)
 		conn.RecordPrintfLine(t, "211 491902 1 y group1")
 
 		_, gotErr := client.Group("group1")
@@ -301,7 +302,7 @@ func toJSON(t testing.TB, i interface{}) string {
 }
 
 func TestClient_Xzver(t *testing.T) {
-	client, conn := GetAuthenticatedClient(t)
+	client, conn := getAuthenticatedClient(t)
 	client.SetOverviewFormat(nntp.DefaultOverviewFormat())
 	conn.RecordPrintfLine(t, "224 Overview information follows")
 	conn.RecordDotMessage(t, `1	some subject	some author	Sun, 10 May 2020 00:32:22 +0000	<some-msg-id>		67755	519
