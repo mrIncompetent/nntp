@@ -41,7 +41,7 @@ func (h *OverviewFormat) FieldToHeader(idx int, value string, header *Header) (e
 		header.Author = value
 	case "date:":
 		if header.Date, err = ParseDate(value); err != nil {
-			return fmt.Errorf("failed to parse date '%s': %v", value, err)
+			return fmt.Errorf("failed to parse date '%s': %w", value, err)
 		}
 	case "message-id:":
 		header.MessageID = value
