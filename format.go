@@ -1,6 +1,7 @@
 package nntp
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,9 +27,16 @@ type OverviewFormat struct {
 	lowercaseFieldNames []string
 }
 
+var ErrInvalidHeaderCount = errors.New("invalid number of headers given")
+
 func (h *OverviewFormat) FieldToHeader(idx int, value string, header *Header) (err error) {
 	if idx+1 > len(h.fieldNames) {
-		return fmt.Errorf("header format only knows about %d field(s). %dth field given", len(h.fieldNames), idx+1)
+		return fmt.Errorf(
+			"%w: header format only knows about %d field(s). %dth field given",
+			ErrInvalidHeaderCount,
+			len(h.fieldNames),
+			idx+1,
+		)
 	}
 
 	fieldName := h.fieldNames[idx]
@@ -90,6 +98,8 @@ func (h *OverviewFormat) ParseXoverLine(line string) (header Header, err error) 
 	return header, err
 }
 
+var ErrInvalidDateFormat = errors.New("invalid date format")
+
 func ParseDate(s string) (time.Time, error) {
 	layouts := []string{
 		time.RFC1123Z,
@@ -106,7 +116,7 @@ func ParseDate(s string) (time.Time, error) {
 		return t, nil
 	}
 
-	return time.Time{}, fmt.Errorf("does not match known format. Known formats: %v", layouts)
+	return time.Time{}, fmt.Errorf("%w: does not match known format. Known formats: %v", ErrInvalidDateFormat, layouts)
 }
 
 func DefaultOverviewFormat() *OverviewFormat {

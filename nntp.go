@@ -1,6 +1,7 @@
 package nntp
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/textproto"
@@ -15,6 +16,8 @@ type Client struct {
 	headerFormat *OverviewFormat
 }
 
+var ErrInvalidGreetingResponse = errors.New("invalid greeting response returned from server")
+
 func NewFromConn(conn io.ReadWriteCloser) (*Client, error) {
 	c := &Client{
 		connection: textproto.NewConn(conn),
@@ -26,7 +29,7 @@ func NewFromConn(conn io.ReadWriteCloser) (*Client, error) {
 	}
 
 	if code != 200 && code != 201 {
-		return nil, fmt.Errorf("server did not respond with valid greeting. Allowed codes: 200, 201. Got: %s", msg)
+		return nil, fmt.Errorf("%w: Allowed codes: 200, 201. Got: %s", ErrInvalidGreetingResponse, msg)
 	}
 
 	return c, nil
@@ -174,11 +177,18 @@ func (c *Client) Newsgroups(since time.Time) ([]NewsgroupOverview, error) {
 	return groups, nil
 }
 
+var (
+	ErrInvalidNewsgroupOverviewLineReturned = errors.New("invalid news group overview line returned. Line must consist of 4 parts separated by space")
+
+	ErrInvalidNewsGroupStatus = errors.New("invalid newsgroup status. Allowed: y,n,m")
+)
+
 func parseNewsgroupOverview(line string) (group NewsgroupOverview, err error) {
 	parts := strings.Split(line, " ")
 	if len(parts) != 4 {
 		return group, fmt.Errorf(
-			"invalid number of parts returned from newsgroup line. Expected 4 parts separated by space. Got %d",
+			"%w: Got %d",
+			ErrInvalidNewsgroupOverviewLineReturned,
 			len(parts),
 		)
 	}
@@ -189,7 +199,7 @@ func parseNewsgroupOverview(line string) (group NewsgroupOverview, err error) {
 	case "y", "n", "m":
 		group.Status = NewsgroupStatus(strings.ToLower(parts[3]))
 	default:
-		return group, fmt.Errorf("invalid newsgroup status '%s'", parts[3])
+		return group, fmt.Errorf("%w: Got '%s'", ErrInvalidNewsGroupStatus, parts[3])
 	}
 
 	if group.High, err = strconv.ParseUint(parts[1], 10, 64); err != nil {
@@ -210,6 +220,8 @@ type NewsgroupDetail struct {
 	Number uint64
 }
 
+var ErrInvalidNewsgroupLineReturned = errors.New("invalid news group line returned. Line must consist of 4 parts separated by space")
+
 func (c *Client) Group(g string) (group NewsgroupDetail, err error) {
 	id, err := c.connection.Cmd("GROUP %s", g)
 	if err != nil {
@@ -227,7 +239,8 @@ func (c *Client) Group(g string) (group NewsgroupDetail, err error) {
 	parts := strings.Split(line, " ")
 	if len(parts) != 4 {
 		return group, fmt.Errorf(
-			"invalid number of parts returned from newsgroup line. Expected 4 parts separated by space. Got %d",
+			"%w: Got %d",
+			ErrInvalidNewsgroupLineReturned,
 			len(parts),
 		)
 	}
