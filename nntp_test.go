@@ -301,7 +301,7 @@ func toJSON(t testing.TB, i interface{}) string {
 	return string(b)
 }
 
-func TestClient_Xzver(t *testing.T) {
+func TestClient_Xover(t *testing.T) {
 	client, conn := getAuthenticatedClient(t)
 	client.SetOverviewFormat(nntp.DefaultOverviewFormat())
 	conn.RecordPrintfLine(t, "224 Overview information follows")
@@ -334,6 +334,52 @@ func TestClient_Xzver(t *testing.T) {
 			Lines:         519,
 		},
 	}
+
+	t.Logf("Expected headers: \n%s", toJSON(t, expectedHeaders))
+	t.Logf("Got headers: %v", toJSON(t, gotHeaders))
+
+	assert.Equal(t, expectedHeaders, gotHeaders)
+}
+
+func TestClient_XoverChan(t *testing.T) {
+	client, conn := getAuthenticatedClient(t)
+	client.SetOverviewFormat(nntp.DefaultOverviewFormat())
+	conn.RecordPrintfLine(t, "224 Overview information follows")
+	conn.RecordDotMessage(t, `1	some subject	some author	Sun, 10 May 2020 00:32:22 +0000	<some-msg-id>		67755	519
+2	some subject	some author	Sun, 10 May 2020 00:32:22 +0000	<some-msg-id>		67755	519
+`)
+
+	expectedHeaders := []nntp.Header{
+		{
+			MessageNumber: 1,
+			Subject:       "some subject",
+			Author:        "some author",
+			Date:          time.Date(2020, 5, 10, 0, 32, 22, 0, time.FixedZone("", 0)),
+			MessageID:     "<some-msg-id>",
+			References:    "",
+			Bytes:         67755,
+			Lines:         519,
+		},
+		{
+			MessageNumber: 2,
+			Subject:       "some subject",
+			Author:        "some author",
+			Date:          time.Date(2020, 5, 10, 0, 32, 22, 0, time.FixedZone("", 0)),
+			MessageID:     "<some-msg-id>",
+			References:    "",
+			Bytes:         67755,
+			Lines:         519,
+		},
+	}
+
+	var gotHeaders []nntp.Header
+
+	headersChan, errChan, err := client.XoverChan("1-1000")
+	require.NoError(t, err, "Failed to list compressed headers")
+	for header := range headersChan {
+		gotHeaders = append(gotHeaders, header)
+	}
+	assert.Len(t, errChan, 0)
 
 	t.Logf("Expected headers: \n%s", toJSON(t, expectedHeaders))
 	t.Logf("Got headers: %v", toJSON(t, gotHeaders))

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mrincompetent/nntp"
@@ -123,4 +124,20 @@ func TestClient_Integration_Xover(t *testing.T) {
 	for _, header := range headers {
 		t.Logf("%s: %s", header.MessageID, header.Subject)
 	}
+}
+
+func TestClient_Integration_XoverChan(t *testing.T) {
+	client := GetAuthenticatedIntegrationClient(t)
+
+	group, err := client.Group(testGroup)
+	require.NoError(t, err, "Failed to change group")
+
+	headerChan, errChan, err := client.XoverChan(fmt.Sprintf("%d-%d", group.High-100, group.High))
+	require.NoError(t, err, "Failed to list headers")
+
+	for header := range headerChan {
+		t.Logf("%s: %s", header.MessageID, header.Subject)
+	}
+
+	assert.Len(t, errChan, 0)
 }

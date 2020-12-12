@@ -324,6 +324,63 @@ func (c *Client) Xover(r string) ([]Header, error) {
 	return headers, nil
 }
 
+func (c *Client) XoverChan(r string) (chan Header, chan error, error) {
+	if c.headerFormat == nil {
+		if err := c.InitializeOverviewFormat(); err != nil {
+			return nil, nil, fmt.Errorf("failed to initialize overview format: %w", err)
+		}
+	}
+
+	id, err := c.connection.Cmd("XOVER %s", r)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	c.connection.StartResponse(id)
+	if _, _, err = c.connection.ReadCodeLine(224); err != nil {
+		c.connection.EndResponse(id)
+		return nil, nil, err
+	}
+
+	headerChan := make(chan Header, 1024)
+	errChan := make(chan error)
+
+	go func() {
+		defer c.connection.EndResponse(id)
+		defer close(headerChan)
+		defer close(errChan)
+
+		for {
+			line, err := c.connection.ReadLine()
+			if err != nil {
+				if err == io.EOF {
+					err = io.ErrUnexpectedEOF
+				}
+				errChan <- err
+				return
+			}
+
+			// Dot by itself marks end; otherwise cut one dot.
+			if len(line) > 0 && line[0] == '.' {
+				if len(line) == 1 {
+					return
+				}
+				line = line[1:]
+			}
+
+			header, err := c.headerFormat.ParseXoverLine(line)
+			if err != nil {
+				errChan <- fmt.Errorf("failed to parse line '%s': %w", line, err)
+				continue
+			}
+
+			headerChan <- header
+		}
+	}()
+
+	return headerChan, errChan, nil
+}
+
 type Header struct {
 	MessageNumber uint64
 	Subject       string
