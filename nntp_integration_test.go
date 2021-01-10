@@ -3,6 +3,7 @@
 package nntp_test
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -52,7 +53,16 @@ func (c *LoggingConnection) Close() error {
 }
 
 func GetIntegrationClient(t testing.TB) *nntp.Client {
-	conn, err := net.Dial("tcp", os.Getenv("NNTP_TEST_ADDRESS"))
+	address := os.Getenv("NNTP_TEST_ADDRESS")
+	hostname, _, err := net.SplitHostPort(address)
+	require.NoError(t, err, "Failed to split NNTP_TEST_ADDRESS '%s' into hostname and port")
+
+	tlsConfig := &tls.Config{
+		ServerName:         hostname,
+		InsecureSkipVerify: false,
+	}
+
+	conn, err := tls.Dial("tcp", address, tlsConfig)
 	require.NoError(t, err, "Failed to get integration test connection")
 
 	client, err := nntp.NewFromConn(&LoggingConnection{c: conn, t: t})
