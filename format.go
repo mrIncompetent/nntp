@@ -61,7 +61,7 @@ func (h *OverviewFormat) FieldToHeader(idx int, value string, header *Header) (e
 		}
 	case "lines:", ":lines":
 		if header.Lines, err = strconv.ParseUint(value, 10, 64); err != nil {
-			return fmt.Errorf("failed to parse lines '%s': %w", value, err)
+			return fmt.Errorf("failed to parse 'lines' field '%s': %w", value, err)
 		}
 	default:
 		if header.Additional == nil {
@@ -82,16 +82,16 @@ func (h *OverviewFormat) FieldToHeader(idx int, value string, header *Header) (e
 }
 
 func (h *OverviewFormat) ParseXoverLine(line string) (header Header, err error) {
-	lines := strings.Split(line, "\t")
+	fields := strings.Split(line, "\t")
 	// MessageNumber doesn't get mentioned in the format, but it's always the first field.
-	if header.MessageNumber, err = strconv.ParseUint(lines[0], 10, 64); err != nil {
-		return header, fmt.Errorf("failed to parse message number '%s': %w", lines[0], err)
+	if header.MessageNumber, err = strconv.ParseUint(fields[0], 10, 64); err != nil {
+		return header, fmt.Errorf("failed to parse message number '%s': %w", fields[0], err)
 	}
 
-	lines = lines[1:]
-	for idx := range lines {
-		if err := h.FieldToHeader(idx, lines[idx], &header); err != nil {
-			return header, fmt.Errorf("failed to map field %d ('%s'): %w", idx, lines[idx], err)
+	fields = fields[1:]
+	for idx := range fields {
+		if err := h.FieldToHeader(idx, fields[idx], &header); err != nil {
+			return header, fmt.Errorf("failed to map field %d ('%s'): %w", idx, fields[idx], err)
 		}
 	}
 
