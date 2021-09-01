@@ -130,8 +130,8 @@ func TestHeaderFormat_ParseXoverLine(t *testing.T) {
 			},
 		},
 		{
-			name: "successful - missing :lines",
-			line: `1	some subject	some author	Sun, 10 May 2020 00:32:22 +0000	<some-msg-id>		67755	`,
+			name: "successful - missing :lines & :bytes",
+			line: `1	some subject	some author	Sun, 10 May 2020 00:32:22 +0000	<some-msg-id>			`,
 			format: nntp.NewOverviewFormat([]string{
 				"Subject:",
 				"From:",
@@ -149,7 +149,7 @@ func TestHeaderFormat_ParseXoverLine(t *testing.T) {
 				Date:          time.Date(2020, 5, 10, 0, 32, 22, 0, time.FixedZone("", 0)),
 				MessageID:     "<some-msg-id>",
 				References:    "",
-				Bytes:         67755,
+				Bytes:         0,
 				Lines:         0,
 			},
 		},

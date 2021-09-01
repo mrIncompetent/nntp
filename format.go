@@ -56,8 +56,13 @@ func (h *OverviewFormat) FieldToHeader(idx int, value string, header *Header) (e
 	case "references:":
 		header.References = value
 	case "bytes:", ":bytes":
-		if header.Bytes, err = strconv.ParseUint(value, 10, 64); err != nil {
-			return fmt.Errorf("failed to parse bytes '%s': %w", value, err)
+		// For some reason it's not always set
+		if strings.TrimSpace(value) == "" {
+			header.Bytes = 0
+		} else {
+			if header.Bytes, err = strconv.ParseUint(value, 10, 64); err != nil {
+				return fmt.Errorf("failed to parse bytes '%s': %w", value, err)
+			}
 		}
 	case "lines:", ":lines":
 		// For some reason it's not always set
