@@ -60,9 +60,15 @@ func (h *OverviewFormat) FieldToHeader(idx int, value string, header *Header) (e
 			return fmt.Errorf("failed to parse bytes '%s': %w", value, err)
 		}
 	case "lines:", ":lines":
-		if header.Lines, err = strconv.ParseUint(value, 10, 64); err != nil {
-			return fmt.Errorf("failed to parse 'lines' field '%s': %w", value, err)
+		// For some reason it's not always set
+		if strings.TrimSpace(value) == "" {
+			header.Lines = 0
+		} else {
+			if header.Lines, err = strconv.ParseUint(value, 10, 64); err != nil {
+				return fmt.Errorf("failed to parse 'lines' field '%s': %w", value, err)
+			}
 		}
+
 	default:
 		if header.Additional == nil {
 			header.Additional = map[string]string{}
