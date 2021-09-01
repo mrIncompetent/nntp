@@ -106,6 +106,7 @@ func ParseDate(s string) (time.Time, error) {
 		time.RFC1123,
 		"2 Jan 2006 15:04:05 -0700",
 		"Mon, 02 Jan 2006 15:04:05 -0700 (MST)",
+		"Mon, 02 Jan 06 15:04:05 MST",
 	}
 
 	for _, layout := range layouts {

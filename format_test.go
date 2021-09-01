@@ -153,6 +153,7 @@ func TestParseDate(t *testing.T) {
 		"Wed, 01 Jan 2020 12:34:56 +0100",
 		"Wed, 01 Jan 2020 13:34:56 CEST",
 		"Wed, 01 Jan 2020 12:34:56 +0100 (CET)",
+		"Wed, 01 Jan 20 12:34:56 CET",
 	}
 
 	for _, s := range dates {
